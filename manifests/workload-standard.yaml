@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workload-standard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: workload-standard
+  template:
+    metadata:
+      labels:
+        app: workload-standard
+      # No compute-class annotation here
+      # This pod will run on the original Standard node pool
+    spec:
+      containers:
+      - name: app
+        image: nginx:stable
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "100m"
+            memory: "128Mi"

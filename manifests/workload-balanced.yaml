@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workload-balanced
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: workload-balanced
+  template:
+    metadata:
+      labels:
+        app: workload-balanced
+      annotations:
+        # This tells GKE to treat this pod as an Autopilot workload
+        # and provision a node with the "balanced" compute class
+        cloud.google.com/compute-class: "balanced"
+    spec:
+      containers:
+      - name: app
+        image: nginx:stable
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"

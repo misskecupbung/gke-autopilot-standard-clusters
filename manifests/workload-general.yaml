@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workload-general
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: workload-general
+  template:
+    metadata:
+      labels:
+        app: workload-general
+      annotations:
+        cloud.google.com/compute-class: "general-purpose"
+    spec:
+      containers:
+      - name: app
+        image: nginx:stable
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
