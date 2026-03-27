@@ -30,6 +30,15 @@ export CLUSTER_NAME=lab-autopilot-standard
 export ZONE=us-central1-a
 ```
 
+## Clone the repo
+
+```bash
+git clone https://github.com/misskecupbung/gke-autopilot-standard-clusters.git
+cd gke-autopilot-standard-clusters
+```
+
+---
+
 ## Step 1 — Create a Standard cluster
 
 You need a Standard cluster on the rapid channel — this feature is rapid-only for now. Takes about 3–5 minutes.
