@@ -38,8 +38,6 @@ git clone https://github.com/misskecupbung/gke-autopilot-standard-clusters.git
 cd gke-autopilot-standard-clusters
 ```
 
----
-
 ## Step 1 — Create a Standard cluster
 
 You need a Standard cluster on the rapid channel with GKE version 1.34.1+. Autopilot ComputeClasses on Standard require this version. Takes about 3–5 minutes.
@@ -187,9 +185,3 @@ gcloud container clusters delete $CLUSTER_NAME --zone $ZONE --quiet
 ## Summary
 
 Autopilot pods got their own nodes provisioned by GKE. Standard pods used the original node pool. The built-in `autopilot` and `autopilot-spot` classes worked out of the box. The custom `n4-class` let you target a specific machine family while still having GKE manage the node.
-
-## Try next
-
-- Deploy DaemonSets and see that they only land on Standard nodes
-- Set a ComputeClass as the default for a namespace
-- Check ComputeClass resource limits in [the docs](https://cloud.google.com/kubernetes-engine/docs/concepts/about-custom-compute-classes)
