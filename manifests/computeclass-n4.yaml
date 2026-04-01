@@ -1,0 +1,16 @@
+apiVersion: cloud.google.com/v1
+kind: ComputeClass
+metadata:
+  name: n4-class
+spec:
+  autopilot:
+    enabled: true
+  priorities:
+  - machineFamily: n4
+    spot: true
+  - machineFamily: n4
+    spot: false
+  activeMigration:
+    optimizeRulePriority: true
+  nodePoolAutoCreation:
+    enabled: true

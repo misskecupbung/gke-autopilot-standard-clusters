@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workload-autopilot-spot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: workload-autopilot-spot
+  template:
+    metadata:
+      labels:
+        app: workload-autopilot-spot
+    spec:
+      # Selects the built-in "autopilot-spot" ComputeClass
+      # GKE provisions Spot VMs for this pod
+      nodeSelector:
+        cloud.google.com/compute-class: autopilot-spot
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: app
+        image: nginx:stable
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "250m"
+            memory: "512Mi"

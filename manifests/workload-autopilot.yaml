@@ -1,26 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: workload-general
+  name: workload-autopilot
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: workload-general
+      app: workload-autopilot
   template:
     metadata:
       labels:
-        app: workload-general
-      annotations:
-        cloud.google.com/compute-class: "general-purpose"
+        app: workload-autopilot
     spec:
+      # Selects the built-in "autopilot" ComputeClass
+      # GKE manages node provisioning for this pod
+      nodeSelector:
+        cloud.google.com/compute-class: autopilot
       containers:
       - name: app
         image: nginx:stable
         resources:
           requests:
-            cpu: "500m"
+            cpu: "250m"
             memory: "512Mi"
           limits:
-            cpu: "500m"
+            cpu: "250m"
             memory: "512Mi"

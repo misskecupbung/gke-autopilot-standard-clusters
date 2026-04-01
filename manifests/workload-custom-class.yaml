@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workload-custom-class
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: workload-custom-class
+  template:
+    metadata:
+      labels:
+        app: workload-custom-class
+    spec:
+      # Selects the custom "n4-class" ComputeClass
+      # GKE provisions N4 machines based on the ComputeClass priorities
+      nodeSelector:
+        cloud.google.com/compute-class: n4-class
+      containers:
+      - name: app
+        image: nginx:stable
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "250m"
+            memory: "512Mi"
