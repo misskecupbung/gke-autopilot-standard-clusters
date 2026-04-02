@@ -89,6 +89,13 @@ kubectl get nodes -L cloud.google.com/compute-class
 
 You should see a second node with the `cloud.google.com/compute-class=autopilot` label. GKE created and manages this node.
 
+> **Before continuing:** New GCP projects have a 250GB `SSD_TOTAL_GB` quota in `us-central1`. Running two Autopilot-managed nodes at the same time will exceed it. Delete this workload and wait for the node to scale down before Step 3.
+> ```bash
+> kubectl delete -f manifests/workload-autopilot.yaml
+> kubectl get nodes -L cloud.google.com/compute-class -w
+> ```
+> Wait until the `autopilot` node disappears (3–5 minutes).
+
 ## Step 3 — Deploy with `autopilot-spot` ComputeClass
 
 The `autopilot-spot` class works the same way but provisions Spot VMs. Good for batch jobs or fault-tolerant workloads.
@@ -104,15 +111,20 @@ Once running, check nodes:
 kubectl get nodes -L cloud.google.com/compute-class,cloud.google.com/gke-spot
 ```
 
-You should see:
-- `autopilot` node (on-demand)
-- `autopilot-spot` node with `cloud.google.com/gke-spot=true`
+You should see an `autopilot-spot` node with `cloud.google.com/gke-spot=true`.
 
 See which pod is on which node:
 
 ```bash
 kubectl get pods -o wide
 ```
+
+> **Before continuing:** Delete this workload and wait for the node to scale down before Step 4.
+> ```bash
+> kubectl delete -f manifests/workload-autopilot-spot.yaml
+> kubectl get nodes -L cloud.google.com/compute-class -w
+> ```
+> Wait until the `autopilot-spot` node disappears.
 
 ## Step 4 — Create and use a custom ComputeClass
 
@@ -147,11 +159,11 @@ Each ComputeClass has minimum resource requirements. If your pod requests less, 
 Check what a pod actually got:
 
 ```bash
-POD=$(kubectl get pod -l app=workload-autopilot -o jsonpath='{.items[0].metadata.name}')
+POD=$(kubectl get pod -l app=workload-custom-class -o jsonpath='{.items[0].metadata.name}')
 kubectl get pod $POD -o jsonpath='{.spec.containers[0].resources}' | python3 -m json.tool
 ```
 
-Compare with `manifests/workload-autopilot.yaml`. If the numbers differ, GKE mutated them. This affects billing — you pay for the actual requests, not what you wrote in the manifest.
+Compare with `manifests/workload-custom-class.yaml`. If the numbers differ, GKE mutated them. This affects billing — you pay for the actual requests, not what you wrote in the manifest.
 
 ## Step 6 — Standard workload still works normally
 
@@ -166,14 +178,14 @@ It schedules on the original `e2-medium` node, not on any Autopilot-managed node
 
 ## Step 7 — Scale-down
 
-Delete the autopilot workload:
+Delete the custom class workload:
 
 ```bash
-kubectl delete -f manifests/workload-autopilot.yaml
+kubectl delete -f manifests/workload-custom-class.yaml
 kubectl get nodes -L cloud.google.com/compute-class -w
 ```
 
-The `autopilot` node sticks around for a few minutes (cooldown to avoid thrashing), then GKE removes it.
+The `n4-class` node sticks around for a few minutes (cooldown to avoid thrashing), then GKE removes it.
 
 ## Step 8 — Clean up
 
