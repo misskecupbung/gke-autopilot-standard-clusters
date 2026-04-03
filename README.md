@@ -1,8 +1,8 @@
 # Autopilot ComputeClasses on Standard Clusters
 
-GKE now lets you run Autopilot workloads inside Standard clusters using ComputeClasses. You select a ComputeClass in your pod spec with a `nodeSelector`, and GKE provisions and manages the node. The rest of the cluster stays Standard.
+GKE now lets you run Autopilot-managed workloads inside a Standard cluster using ComputeClasses. You pick a ComputeClass in your pod spec with a `nodeSelector`, and GKE creates and manages the node for that pod. The rest of the cluster stays Standard.
 
-Useful when some pods need node-level control (DaemonSets, SSH, custom node configs) and others just need to run somewhere.
+This is useful when some pods need node-level control (DaemonSets, SSH, custom configs) and others just need to run.
 
 ## What this covers
 
@@ -40,7 +40,7 @@ cd gke-autopilot-standard-clusters
 
 ## Step 1 — Create a Standard cluster
 
-You need a Standard cluster on the rapid channel with GKE version 1.34.1+. Autopilot ComputeClasses on Standard require this version. Takes about 3–5 minutes.
+This needs GKE version 1.34.1 or higher on the rapid channel. That's the minimum for Autopilot ComputeClasses on Standard. Creation takes about 3–5 minutes.
 
 ```bash
 gcloud container clusters create $CLUSTER_NAME \
@@ -53,7 +53,9 @@ gcloud container clusters create $CLUSTER_NAME \
   --max-memory 64
 ```
 
-`--enable-autoprovisioning` lets GKE create node pools automatically when a ComputeClass needs them.
+`--enable-autoprovisioning` lets GKE create node pools on its own when a ComputeClass needs them. Without this, ComputeClass pods would stay Pending.
+
+Once the cluster is ready, get credentials and check the node:
 
 ```bash
 gcloud container clusters get-credentials $CLUSTER_NAME --zone $ZONE
@@ -72,33 +74,26 @@ You should see `autopilot` and `autopilot-spot` in the list.
 
 ## Step 2 — Deploy with the built-in `autopilot` ComputeClass
 
-The `autopilot` ComputeClass is built into GKE. Select it with a `nodeSelector` — no ComputeClass CR to create, no node pool to configure.
+The only difference from a normal deployment is the `nodeSelector`. No node pool to create, no autoscaling to configure.
 
 ```bash
 kubectl apply -f manifests/workload-autopilot.yaml
 kubectl get pods -w
 ```
 
-Pod stays `Pending` for 1–3 minutes while GKE creates and configures a node. Then it goes `Running`.
+The pod stays `Pending` for 1–3 minutes while GKE creates and configures a node. Then it goes `Running`.
 
-Check nodes:
+Check the nodes:
 
 ```bash
 kubectl get nodes -L cloud.google.com/compute-class
 ```
 
-You should see a second node with the `cloud.google.com/compute-class=autopilot` label. GKE created and manages this node.
-
-> **Before continuing:** New GCP projects have a 250GB `SSD_TOTAL_GB` quota in `us-central1`. Running two Autopilot-managed nodes at the same time will exceed it. Delete this workload and wait for the node to scale down before Step 3.
-> ```bash
-> kubectl delete -f manifests/workload-autopilot.yaml
-> kubectl get nodes -L cloud.google.com/compute-class -w
-> ```
-> Wait until the `autopilot` node disappears (3–5 minutes).
+You should see a second node with `cloud.google.com/compute-class=autopilot`. GKE created and manages this node.
 
 ## Step 3 — Deploy with `autopilot-spot` ComputeClass
 
-The `autopilot-spot` class works the same way but provisions Spot VMs. Good for batch jobs or fault-tolerant workloads.
+Same as Step 2, but the node is a Spot VM. Cheaper, but GCP can stop it at any time. Good for batch jobs or workloads that can restart.
 
 ```bash
 kubectl apply -f manifests/workload-autopilot-spot.yaml
@@ -119,18 +114,9 @@ See which pod is on which node:
 kubectl get pods -o wide
 ```
 
-> **Before continuing:** Delete this workload and wait for the node to scale down before Step 4.
-> ```bash
-> kubectl delete -f manifests/workload-autopilot-spot.yaml
-> kubectl get nodes -L cloud.google.com/compute-class -w
-> ```
-> Wait until the `autopilot-spot` node disappears.
-
 ## Step 4 — Create and use a custom ComputeClass
 
-Built-in classes cover general-purpose workloads. If you need specific machine families, create a custom ComputeClass.
-
-This one targets N4 machines, prefers Spot, and falls back to on-demand:
+The built-in classes work for general use. If you need a specific machine family, create your own ComputeClass. This one targets N4 machines — Spot first, on-demand as fallback:
 
 ```bash
 kubectl apply -f manifests/computeclass-n4.yaml
@@ -144,7 +130,7 @@ kubectl apply -f manifests/workload-custom-class.yaml
 kubectl get pods -w
 ```
 
-GKE provisions an N4 node based on the ComputeClass priorities. Check:
+GKE provisions an N4 node based on the ComputeClass priorities. Once the pod is running, check the nodes:
 
 ```bash
 kubectl get nodes -L cloud.google.com/compute-class
@@ -154,38 +140,38 @@ You should see a node with `cloud.google.com/compute-class=n4-class`.
 
 ## Step 5 — Resource mutation
 
-Each ComputeClass has minimum resource requirements. If your pod requests less, GKE bumps the values up silently.
+Each ComputeClass has minimum resource requirements. If your pod requests less than the minimum, GKE changes the values before scheduling. It doesn't warn you.
 
-Check what a pod actually got:
+Check what the pod actually got:
 
 ```bash
 POD=$(kubectl get pod -l app=workload-custom-class -o jsonpath='{.items[0].metadata.name}')
 kubectl get pod $POD -o jsonpath='{.spec.containers[0].resources}' | python3 -m json.tool
 ```
 
-Compare with `manifests/workload-custom-class.yaml`. If the numbers differ, GKE mutated them. This affects billing — you pay for the actual requests, not what you wrote in the manifest.
+Compare with `manifests/workload-custom-class.yaml`. If the numbers are different, GKE changed them. This affects billing — you pay for the values in the pod spec, not what you wrote in the manifest.
 
 ## Step 6 — Standard workload still works normally
 
-Deploy a pod without a ComputeClass selector:
+To confirm the two modes don't interfere, deploy a pod without a ComputeClass selector:
 
 ```bash
 kubectl apply -f manifests/workload-standard.yaml
 kubectl get pods -o wide
 ```
 
-It schedules on the original `e2-medium` node, not on any Autopilot-managed node.
+It goes to the original `e2-medium` node. The Autopilot-managed nodes are only used by pods that select them.
 
 ## Step 7 — Scale-down
 
-Delete the custom class workload:
+Delete the custom class workload and watch the node go away:
 
 ```bash
 kubectl delete -f manifests/workload-custom-class.yaml
 kubectl get nodes -L cloud.google.com/compute-class -w
 ```
 
-The `n4-class` node sticks around for a few minutes (cooldown to avoid thrashing), then GKE removes it.
+The `n4-class` node stays for a few minutes — GKE waits before removing it to avoid creating and deleting nodes too fast. After that, it's removed.
 
 ## Step 8 — Clean up
 
@@ -196,4 +182,4 @@ gcloud container clusters delete $CLUSTER_NAME --zone $ZONE --quiet
 
 ## Summary
 
-Autopilot pods got their own nodes provisioned by GKE. Standard pods used the original node pool. The built-in `autopilot` and `autopilot-spot` classes worked out of the box. The custom `n4-class` let you target a specific machine family while still having GKE manage the node.
+The built-in classes worked without any setup — just add the `nodeSelector` and GKE handles the node. The custom `n4-class` shows how to target a specific machine family while keeping the same managed behavior. Standard pods were not affected; they stayed on the original node pool.
